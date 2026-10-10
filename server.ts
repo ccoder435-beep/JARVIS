@@ -4,11 +4,12 @@ import { WebSocketServer, WebSocket } from "ws";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from "@google/genai";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -299,18 +300,20 @@ async function startServer() {
     res.json({ status: "ok", assistant: "J.A.R.V.I.S.", creator: "Chandan Sir" });
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  const distPath = path.join(process.cwd(), "dist");
+  const distIndexHtml = path.join(distPath, "index.html");
+
+  if (process.env.NODE_ENV === "production" && fs.existsSync(distIndexHtml)) {
+    app.use(express.static(distPath));
+    app.get("*", (_req, res) => {
+      res.sendFile(distIndexHtml);
+    });
+  } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
 
   server.listen(PORT, "0.0.0.0", () => {
